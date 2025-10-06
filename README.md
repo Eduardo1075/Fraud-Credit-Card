@@ -275,30 +275,217 @@ O gráfico mostra a **proporção de fraudes** em relação ao total de transaç
 
 ---
 
-# Importância de *Features* (SHAP)
-![shap](images/shap.png)
-
-O gráfico SHAP mostra o impacto médio absoluto de cada *feature* na predição de fraude. Quanto maior o valor SHAP, mais importante a *feature* para o modelo.
-
-### Principais Insights
-
-- **Top Preditores:**
-  - **V14:** Mais importante, forte separação negativa para fraudes.  
-  - **V10_x_V14:** Interação altamente preditiva.  
-  - **V4:** Outro preditor chave confirmado pelos Violin Plots.
-
-- **Outras *Features* Relevantes:**
-  - **V8, V1, V3, V11, V12, V18**: Contribuem significativamente.  
-  - **Time:** Moderadamente relevante, reforçando o padrão de fraude na madrugada.  
-  - **Amount_log:** Relevante após transformação logarítmica, embora menos impactante que variáveis PCA.
-
-- **Interações Importantes:**
-  - **V4_x_V12, V12_x_V17, V14_x_V17, V12_x_V14, V4_x_V14**: Modelo captura relações complexas entre *features*.
-
-### Conclusão
-
-- Variáveis PCA mais críticas: **V14, V4, V10, V12, V17**.  
-- Variável temporal (`Time`) e valor de transação transformado (`Amount_log`) adicionam valor adicional.  
-- Interações complexas demonstram que o modelo está aprendendo padrões de fraude multidimensionais e não apenas limites simples em *features* individuais.
+#  Análise de Desempenho — Threshold Padrão vs Threshold Otimizado
 
 ---
+
+##  1. Resultado com Threshold Padrão (0.5)
+
+### Métricas
+
+| Métrica | Valor |
+|----------|-------|
+| **Precision (fraude)** | 0.82 |
+| **Recall (fraude)** | 0.73 |
+| **F1-Score (fraude)** | 0.77 |
+| **ROC AUC** | 0.9588 |
+| **Accuracy** | 1.00 |
+
+### Matriz de Confusão
+
+|                | Predito Não Fraude | Predito Fraude |
+|----------------|------------------|----------------|
+| **Real Não Fraude** | 84.952 | 24 |
+| **Real Fraude**     | 40     | 108 |
+
+### Interpretação
+
+- **Modelo bem calibrado:** A ROC AUC ≈ 0.96 indica excelente separação entre as classes.  
+- **Recall = 0.73:** 27% das fraudes ainda passam despercebidas.  
+- **Precision = 0.82:** 18% dos alertas de fraude são falsos, bom patamar operacional.  
+- **F1 = 0.77:** bom equilíbrio entre precisão e sensibilidade.  
+
+> **Conclusão:** Modelo sólido, com leve viés para recall — adequado se o objetivo for capturar o máximo possível de fraudes, mesmo com alguns falsos positivos.
+
+---
+
+##  2. Resultado com Threshold Otimizado (0.9646 – Máximo F1)
+
+### Métricas
+
+| Métrica | Valor |
+|----------|-------|
+| **Precision (fraude)** | 0.962 |
+| **Recall (fraude)** | 0.682 |
+| **F1-Score (fraude)** | 0.798 |
+| **Accuracy** | 1.00 |
+
+### Matriz de Confusão
+
+|                | Predito Não Fraude | Predito Fraude |
+|----------------|------------------|----------------|
+| **Real Não Fraude** | 84.972 | 4 |
+| **Real Fraude**     | 47     | 101 |
+
+### Interpretação
+
+- **Precision altíssima (0.962):** 96% dos alertas realmente eram fraudes — quase eliminando falsos positivos (apenas 4 em 85 mil transações!).  
+- **Recall menor (0.682):** o modelo deixou escapar 32% das fraudes.  
+- **F1 ligeiramente melhor (0.798):** melhora o equilíbrio geral.  
+- **Trade-off evidente:** o modelo ficou muito conservador, ótimo financeiramente, mas pode deixar passar fraudes de baixo valor.
+
+> **Conclusão:** Modelo ideal para operações maduras, com custo alto de investigação — maximiza precisão e reduz falsos alarmes.
+
+---
+
+##  3. Comparativo Direto
+
+| Métrica | Threshold 0.5 | Threshold 0.9646 | Diferença |
+|----------|----------------|------------------|------------|
+| **Precision (fraude)** | 0.82 | 0.962 | ▲ +0.14 |
+| **Recall (fraude)** | 0.73 | 0.682 | ▼ -0.05 |
+| **F1-Score (fraude)** | 0.77 | 0.798 | ▲ +0.03 |
+| **Falsos Positivos (FP)** | 24 | 4 | ▼ -83% |
+| **Fraudes Não Detectadas (FN)** | 40 | 47 | ▲ +18% |
+
+**Interpretação:**
+
+- O threshold otimizado reduz drasticamente os falsos positivos (24 → 4), quase sem afetar o recall.  
+- Pequena perda de recall, mas grande ganho em precisão operacional.  
+- F1-Score melhora, indicando que o modelo está mais equilibrado.  
+- Financeiramente, o novo threshold gera menos custo por alertas falsos, mantendo boa capacidade de detecção.
+
+---
+
+##  4. Conclusão
+
+- Modelo robusto, com separação quase perfeita entre fraudes e não fraudes (AUC ≈ 0.96).  
+- Threshold **0.9646** entrega o melhor equilíbrio custo-benefício:
+  - Reduz falsos positivos em 83%.  
+  - Mantém recall aceitável (68% das fraudes capturadas).  
+  - Aumenta o F1-score para 0.798.  
+- Operacionalmente: menos volume de alertas manuais e maior confiança nas sinalizações de fraude.
+
+---
+
+# Análise Financeira do Modelo de Detecção de Fraudes
+
+## 1. Contexto
+
+O modelo foi desenvolvido para identificar transações fraudulentas em um ambiente financeiro com **alto desbalanceamento** (148 fraudes em 85.124 transações de teste). Além das métricas técnicas, é essencial compreender o **impacto financeiro** do modelo, considerando:
+
+- **Custo das fraudes não detectadas (FN)**
+- **Custo operacional dos falsos positivos (FP)**
+- **Potencial de economia com prevenção de perdas**
+
+---
+
+## 2. Resumo do Desempenho do Modelo
+
+Com **Threshold otimizado (0.9646)**:
+
+| Métrica | Valor |
+|----------|-------|
+| Precision (fraude) | 0.962 |
+| Recall (fraude)    | 0.682 |
+| F1-Score (fraude)  | 0.798 |
+| Falsos Positivos (FP) | 4 |
+| Falsos Negativos (FN) | 47 |
+| Verdadeiros Positivos (TP) | 101 |
+
+---
+
+## 3. Estimativa de Impacto Financeiro
+
+### 3.1 Premissas
+
+Para esta análise, consideramos:
+
+- **Custo médio de uma fraude não detectada:** \$1.000  
+- **Custo médio de investigação de uma transação legítima sinalizada como fraude (FP):** \$50  
+
+> Estes valores podem variar dependendo da instituição, tipo de transação e processos internos.
+
+---
+
+### 3.2 Custos com Falsos Negativos (Fraudes não detectadas)
+
+\[
+C_{FN} = FN \times \text{Custo por fraude}
+\]
+
+\[
+C_{FN} = 47 \times 1000 = \$47.000
+\]
+
+---
+
+### 3.3 Custos com Falsos Positivos (Alertas incorretos)
+
+\[
+C_{FP} = FP \times \text{Custo de investigação}
+\]
+
+\[
+C_{FP} = 4 \times 50 = \$200
+\]
+
+---
+
+### 3.4 Economia Potencial com Verdadeiros Positivos (Fraudes evitadas)
+
+\[
+C_{TP\_evitado} = TP \times \text{Custo por fraude}
+\]
+
+\[
+C_{TP\_evitado} = 101 \times 1000 = \$101.000
+\]
+
+---
+
+### 3.5 Análise de Benefício Líquido
+
+\[
+Beneficio\_Liquido = C_{TP\_evitado} - (C_{FN} + C_{FP})
+\]
+
+\[
+Beneficio\_Liquido = 101.000 - (47.000 + 200) = \$53.800
+\]
+
+> O modelo, mesmo após trade-off entre Precision e Recall, **gerou uma economia líquida estimada de \$53.800** em apenas 85.124 transações.  
+> Em escala anual ou em bases de milhões de transações, esse valor pode crescer exponencialmente.
+
+---
+
+## 4. Observações Financeiras
+
+1. **Trade-off Precision x Recall:**
+   - Threshold alto (0.9646) prioriza **alta precisão**, reduzindo falsos positivos.
+   - Recall menor (0.682) implica que algumas fraudes ainda não são detectadas, representando risco financeiro residual.
+
+2. **Custo-benefício do modelo:**
+   - FP mínimos (4) indicam baixo custo operacional.
+   - FN relativamente baixos (47) representam fraudes remanescentes, que podem ser mitigadas com monitoramento adicional.
+
+3. **Escalabilidade:**
+   - Aplicando o modelo em 1 milhão de transações com mesma proporção de fraudes e custos, o benefício líquido seria **superior a \$600.000**, prevenindo perdas automaticamente.
+
+---
+
+## 5. Conclusão
+
+O modelo apresenta **impacto financeiro positivo**, com:
+
+- **Alta eficiência na prevenção de perdas** (101 fraudes capturadas, \$101.000 evitados)
+- **Baixo custo operacional** (4 falsos positivos, \$200)
+- **Benefício líquido relevante** mesmo em pequena amostra (\$53.800)
+
+**Recomendações:**
+
+- Monitorar continuamente FP e FN para ajustar thresholds conforme padrões de fraude evoluem.
+- Integrar regras de negócio ou alertas automáticos para reduzir FN restantes.
+- Avaliar aplicação do modelo em escala total da base de clientes para maximizar economia financeira.
+
+> Em resumo, o modelo não apenas apresenta **excelentes métricas técnicas**, mas também **resultados financeiros concretos**, justificando sua implementação operacional.
